@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamma Radar · 美股波动状态看板</title>
+<style>
+  :root{
+    --bg:#070b12; --bg2:#0b111c; --card:#0e1624; --card2:#111c2e;
+    --line:#1c2a42; --line2:#26395a;
+    --txt:#e8eef8; --dim:#8fa3c0; --faint:#5b6f8c;
+    --up:#ff4d4f; --down:#22c55e;
+    --amber:#f5a623; --orange:#ff7a1a; --cyan:#38d9e8; --purple:#a78bfa;
+    --mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--txt); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background-image:
+      radial-gradient(1000px 500px at 80% -10%, rgba(56,217,232,.06), transparent 60%),
+      radial-gradient(800px 400px at 10% 0%, rgba(255,122,26,.05), transparent 60%);
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 24px 60px}
+
+  header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:22px}
+  .brand h1{font-size:26px;letter-spacing:1px;font-weight:800}
+  .brand h1 .g{color:var(--cyan)}
+  .brand p{color:var(--dim);font-size:13px;margin-top:6px}
+  .meta{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .badge-session{
+    display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:2px;
+  }
+  .badge-session.pre{background:rgba(245,166,35,.12);color:var(--amber);border:1px solid rgba(245,166,35,.35)}
+  .badge-session.reg{background:rgba(56,217,232,.12);color:var(--cyan);border:1px solid rgba(56,217,232,.4)}
+  .badge-session.post{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.35)}
+  .badge-session.closed{background:rgba(255,255,255,.06);color:var(--faint);border:1px solid var(--line)}
+  .meta .time{font-family:var(--mono);color:var(--faint);font-size:12px}
+  .live-chip{
+    font-size:11px;color:var(--down);display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);
+  }
+  .live-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--down);animation:pulse 2s infinite}
+  .live-chip.err{color:var(--up)} .live-chip.err::before{background:var(--up)}
+  .gear{
+    cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--dim);
+    border-radius:10px;padding:6px 12px;font-size:13px;transition:all .2s;
+  }
+  .gear:hover{border-color:var(--cyan);color:var(--cyan)}
+
+  .tabs{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+  .tab{
+    padding:10px 20px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card);color:var(--dim);cursor:pointer;font-size:14px;font-weight:600;
+    transition:all .2s;display:flex;flex-direction:column;gap:2px;min-width:110px;
+  }
+  .tab small{font-size:11px;font-weight:400;color:var(--faint)}
+  .tab:hover{border-color:var(--line2);color:var(--txt)}
+  .tab.active{
+    background:linear-gradient(135deg,rgba(56,217,232,.14),rgba(56,217,232,.04));
+    border-color:var(--cyan);color:var(--txt);box-shadow:0 0 24px rgba(56,217,232,.12);
+  }
+  .tab.active small{color:var(--cyan)}
+  .tab .tp{font-family:var(--mono);font-size:12px;font-weight:700}
+  .tab .tp.up{color:var(--up)} .tab .tp.down{color:var(--down)}
+
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+  @media(max-width:960px){.grid{grid-template-columns:1fr}}
+  .card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line);border-radius:16px;padding:20px 22px;
+  }
+  .card h2{
+    font-size:13px;color:var(--dim);font-weight:700;letter-spacing:3px;
+    text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;
+  }
+  .card h2::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .card h2 .mini{
+    margin-left:auto;font-size:10px;letter-spacing:1px;color:var(--faint);font-weight:400;text-transform:none;
+  }
+
+  .regime{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:14px;margin-bottom:16px;border:1px solid}
+  .regime.neg{background:rgba(255,122,26,.08);border-color:rgba(255,122,26,.4)}
+  .regime.pos{background:rgba(56,217,232,.07);border-color:rgba(56,217,232,.35)}
+  .regime.warn{background:rgba(245,166,35,.09);border-color:rgba(245,166,35,.45)}
+  .regime .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;animation:pulse 2s infinite}
+  .regime.neg .dot{background:var(--orange);box-shadow:0 0 12px var(--orange)}
+  .regime.pos .dot{background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+  .regime.warn .dot{background:var(--amber);box-shadow:0 0 12px var(--amber)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .regime .rt{flex:1}
+  .regime .rt b{font-size:17px;display:block}
+  .regime.neg .rt b{color:var(--orange)} .regime.pos .rt b{color:var(--cyan)} .regime.warn .rt b{color:var(--amber)}
+  .regime .rt span{font-size:12px;color:var(--dim)}
+  .regime .px{text-align:right;font-family:var(--mono)}
+  .regime .px .p{font-size:24px;font-weight:800}
+  .regime .px .c{font-size:12px}
+  .up{color:var(--up)} .down{color:var(--down)}
+
+  .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .m{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;
+    background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:10px;font-size:13px}
+  .m .k{color:var(--faint)} .m .v{font-family:var(--mono);font-weight:700}
+  .m .v.tag{padding:2px 8px;border-radius:6px;font-size:12px}
+  .tag.neg{background:rgba(255,122,26,.15);color:var(--orange)}
+  .tag.pos{background:rgba(56,217,232,.13);color:var(--cyan)}
+  .tag.mid{background:rgba(245,166,35,.13);color:var(--amber)}
+  .tag.evt{background:rgba(167,139,250,.14);color:var(--purple)}
+  .tag.cfg{background:rgba(255,255,255,.07);color:var(--dim)}
+
+  .conclusion{
+    margin-top:16px;padding:14px 16px;border-left:3px solid var(--orange);
+    background:rgba(255,122,26,.06);border-radius:0 10px 10px 0;font-size:14px;line-height:1.7;
+  }
+  .conclusion.pos{border-color:var(--cyan);background:rgba(56,217,232,.05)}
+  .conclusion.warn{border-color:var(--amber);background:rgba(245,166,35,.06)}
+  .conclusion b{color:var(--orange)} .conclusion.pos b{color:var(--cyan)} .conclusion.warn b{color:var(--amber)}
+
+  .accel{display:flex;flex-direction:column;gap:14px}
+  .abar-row{display:flex;align-items:center;gap:12px}
+  .abar-row .lb{width:88px;font-size:13px;color:var(--dim);flex-shrink:0}
+  .abar{flex:1;height:26px;background:rgba(255,255,255,.04);border-radius:8px;overflow:hidden;position:relative;border:1px solid var(--line)}
+  .abar .fill{height:100%;border-radius:8px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+  .abar .fill.up{background:linear-gradient(90deg,rgba(255,77,79,.4),var(--up))}
+  .abar .fill.dn{background:linear-gradient(90deg,rgba(34,197,94,.35),var(--down))}
+  .abar .pct{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-weight:800;font-size:13px}
+  .factors{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .factor{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim);background:rgba(255,255,255,.02)}
+  .factor.hot{border-color:rgba(255,77,79,.4);color:var(--up);background:rgba(255,77,79,.07)}
+  .factor.cold{border-color:rgba(34,197,94,.35);color:var(--down);background:rgba(34,197,94,.06)}
+
+  .pmap{position:relative;height:380px}
+  .level{position:absolute;left:0;right:56px;display:flex;align-items:center;gap:10px;transform:translateY(-50%)}
+  .level .ln{flex:1;border-top:1px dashed var(--line2)}
+  .level.wall-call .ln{border-top:2px solid rgba(255,77,79,.55)}
+  .level.wall-put .ln{border-top:2px solid rgba(34,197,94,.5)}
+  .level.flip .ln{border-top:2px solid var(--amber)}
+  .level.odte .ln{border-top:1px dashed rgba(167,139,250,.5)}
+  .level .lv{font-family:var(--mono);font-size:13px;font-weight:700;width:52px;text-align:right;flex-shrink:0}
+  .level.wall-call .lv{color:var(--up)} .level.wall-put .lv{color:var(--down)}
+  .level.flip .lv{color:var(--amber)} .level.odte .lv{color:var(--purple)}
+  .level .nm{font-size:11px;color:var(--dim);background:var(--bg2);padding:1px 8px;border-radius:6px;border:1px solid var(--line);white-space:nowrap}
+  .cur{position:absolute;left:-6px;right:40px;transform:translateY(-50%);display:flex;align-items:center;gap:8px;z-index:5;pointer-events:none;transition:top .6s}
+  .cur .tri{width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:10px solid var(--cyan);filter:drop-shadow(0 0 6px var(--cyan))}
+  .cur .cp{font-family:var(--mono);font-weight:800;font-size:14px;color:#04121a;background:var(--cyan);padding:3px 10px;border-radius:8px;box-shadow:0 0 18px rgba(56,217,232,.5)}
+  .watch{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.8;
+    background:rgba(56,217,232,.05);border:1px solid rgba(56,217,232,.25);color:var(--dim)}
+  .watch b{color:var(--cyan)} .watch .danger{color:var(--up);font-weight:700}
+  .edit-hint{margin-top:10px;font-size:11px;color:var(--faint);text-align:right}
+  .edit-hint a{color:var(--cyan);cursor:pointer;text-decoration:none}
+
+  .alerts{display:flex;flex-direction:column;gap:10px}
+  .alert{display:flex;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(255,255,255,.02);font-size:13px;line-height:1.6}
+  .alert .ic{font-size:16px;flex-shrink:0}
+  .alert .at{color:var(--faint);font-family:var(--mono);font-size:11px;margin-top:3px}
+  .alert.fire{border-color:rgba(255,77,79,.5);background:rgba(255,77,79,.07)}
+  .alert.fire b{color:var(--up)}
+  .alert.warn-f{border-color:rgba(245,166,35,.5);background:rgba(245,166,35,.07)}
+  .alert.warn-f b{color:var(--amber)}
+  .alert.info b{color:var(--dim)}
+  .alert .st{margin-left:auto;flex-shrink:0;font-size:10px;padding:2px 8px;border-radius:999px;height:fit-content;font-family:var(--mono)}
+  .alert .st.on{background:rgba(255,77,79,.2);color:var(--up)}
+  .alert .st.off{background:rgba(255,255,255,.06);color:var(--faint)}
+
+  .brief-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:18px}
+  @media(max-width:960px){.brief-grid{grid-template-columns:1fr}}
+  .scen{display:flex;flex-direction:column;gap:8px;font-size:14px}
+  .scen .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;
+    border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+  .scen .cond{font-family:var(--mono);font-weight:700;flex-shrink:0}
+  .scen .res{color:var(--dim);font-size:13px;text-align:right}
+  .scen .row.hl-up{border-color:rgba(255,77,79,.4);background:rgba(255,77,79,.05)}
+  .scen .row.hl-dn{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.04)}
+  .scen .row.now{border-color:var(--cyan);box-shadow:0 0 14px rgba(56,217,232,.12)}
+  .scen .row.now .cond::after{content:" ◄ 当前";color:var(--cyan);font-size:11px}
+  .oneline{margin-top:16px;padding:16px 18px;border-radius:12px;font-size:15px;line-height:1.8;
+    background:linear-gradient(135deg,rgba(56,217,232,.08),rgba(167,139,250,.06));border:1px solid rgba(56,217,232,.3)}
+  .oneline b{color:var(--cyan)}
+  .events{display:flex;flex-direction:column;gap:8px}
+  .evt{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;
+    border:1px solid var(--line);background:rgba(255,255,255,.02);font-size:13px}
+  .evt .et{font-family:var(--mono);color:var(--purple);font-weight:700;width:64px;flex-shrink:0}
+  .evt .ei{color:var(--dim);font-size:11px;margin-left:auto;padding:2px 8px;border-radius:6px;background:rgba(167,139,250,.12);color:var(--purple)}
+
+  .states{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+  @media(max-width:1100px){.states{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.states{grid-template-columns:1fr}}
+  .state{border-radius:14px;padding:16px;border:1px solid var(--line);
+    background:linear-gradient(180deg,var(--card),var(--bg2));font-size:13px;line-height:1.7}
+  .state h3{font-size:14px;margin-bottom:8px}
+  .state p{color:var(--dim);font-size:12px}
+  .state .sig{margin-top:10px;font-size:12px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+  .state.cur-state{outline:2px solid var(--orange);outline-offset:2px}
+  .state .now{display:inline-block;font-size:10px;color:#04121a;background:var(--orange);padding:1px 8px;border-radius:999px;font-weight:800;margin-left:6px}
+
+  footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12px;line-height:1.8}
+  footer b{color:var(--dim)}
+
+  /* ===== 配置抽屉 ===== */
+  .drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:99;opacity:0;pointer-events:none;transition:opacity .25s}
+  .drawer-mask.open{opacity:1;pointer-events:auto}
+  .drawer{
+    position:fixed;top:0;right:-380px;width:360px;max-width:92vw;height:100vh;z-index:100;
+    background:var(--bg2);border-left:1px solid var(--line2);padding:24px;overflow-y:auto;
+    transition:right .3s cubic-bezier(.2,.8,.2,1);
+  }
+  .drawer.open{right:0}
+  .drawer h3{font-size:16px;margin-bottom:4px}
+  .drawer .dsub{font-size:12px;color:var(--faint);margin-bottom:20px;line-height:1.6}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+  .fld input,.fld select{
+    width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line2);
+    background:var(--card);color:var(--txt);font-family:var(--mono);font-size:14px;outline:none;
+  }
+  .fld input:focus,.fld select:focus{border-color:var(--cyan)}
+  .fld-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dbtns{display:flex;gap:10px;margin-top:22px}
+  .btn{flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+  .btn-p{background:var(--cyan);color:#04121a}
+  .btn-p:hover{box-shadow:0 0 18px rgba(56,217,232,.4)}
+  .btn-s{background:transparent;color:var(--dim);border:1px solid var(--line2)}
+  .btn-s:hover{color:var(--txt);border-color:var(--faint)}
+  .dnote{margin-top:16px;font-size:11px;color:var(--faint);line-height:1.7;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px}
+  .toast{
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);z-index:200;
+    background:var(--cyan);color:#04121a;font-weight:700;font-size:13px;padding:10px 22px;border-radius:999px;
+    transition:transform .3s;box-shadow:0 6px 30px rgba(56,217,232,.4);
+  }
+  .toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1><span class="g">Γ</span> GAMMA RADAR <span style="font-weight:300;color:var(--faint)">· 美股波动状态看板</span></h1>
+      <p>不预测涨跌，只回答三个问题：今天是什么市场 · 哪些价位会加速 · 哪边有机械性助推</p>
+    </div>
+    <div class="meta">
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="badge-session pre" id="session-badge">盘前</span>
+        <button class="gear" onclick="openDrawer()">⚙ 配置 Gamma 位</button>
+      </div>
+      <div class="time" id="clock"></div>
+      <div class="live-chip" id="live-chip">行情连接中…</div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="grid">
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card">
+        <h2>今日市场状态 · <span id="ticker-name-1"></span></h2>
+        <div class="regime" id="regime-banner">
+          <div class="dot"></div>
+          <div class="rt"><b id="regime-title"></b><span id="regime-sub"></span></div>
+          <div class="px"><div class="p" id="cur-price">—</div><div class="c" id="cur-chg"></div></div>
+        </div>
+        <div class="metrics" id="metrics"></div>
+        <div class="conclusion" id="conclusion"></div>
+      </div>
+
+      <div class="card">
+        <h2>加速概率提示 · Acceleration Risk<span class="mini">规则模型 · 实时计算</span></h2>
+        <div class="accel">
+          <div class="abar-row"><div class="lb">上涨加速</div><div class="abar"><div class="fill up" id="bar-up"></div><div class="pct up" id="pct-up"></div></div></div>
+          <div class="abar-row"><div class="lb">下跌加速</div><div class="abar"><div class="fill dn" id="bar-dn"></div><div class="pct down" id="pct-dn"></div></div></div>
+          <div class="factors" id="factors"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>盘中监控 · 触发状态<span class="mini">基于真实价格实时判定</span></h2>
+        <div class="alerts" id="alerts"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card">
+        <h2>关键价位地图 · Key Levels<span class="mini" id="levels-src">关键位 = 估算值</span></h2>
+        <div class="pmap" id="pmap"></div>
+        <div class="watch" id="watch-note"></div>
+        <div class="edit-hint">关键位非交易所公布数据，需每日更新 · <a onclick="openDrawer()">点击配置</a></div>
+      </div>
+
+      <div class="card">
+        <h2>今日风险事件</h2>
+        <div class="events" id="events"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brief-grid">
+    <div class="card">
+      <h2>基本情景推演</h2>
+      <div class="scen" id="scenarios"></div>
+      <div class="oneline" id="oneline"></div>
+    </div>
+    <div class="card">
+      <h2>使用方法</h2>
+      <div style="font-size:13px;line-height:2;color:var(--dim)">
+        <p><b style="color:var(--txt)">1.</b> 关键位默认由 CBOE 期权链每日自动估算；如你有更准的数据源（SpotGamma 等），点「⚙ 配置」手动覆盖。</p>
+        <p><b style="color:var(--txt)">2.</b> 看「市场状态」确定震荡市还是趋势市。</p>
+        <p><b style="color:var(--txt)">3.</b> 盘中只盯价位地图上的 3–4 个价格，Alert 触发时自动亮灯。</p>
+        <p><b style="color:var(--txt)">4.</b> 触发 Alert 时再决策，区间内部不追涨杀跌。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="states" id="states"></div>
+
+  <footer>
+    <b>数据说明：</b>行情为公开延迟数据（CNBC，约延迟 15 分钟），60 秒自动刷新。<b>Dealer Gamma、Gamma Flip、Call/Put Wall 均为估算值</b>——交易所不公布真实做市商持仓。关键位默认由 CBOE 延迟期权链（真实 OI + IV）每日自动估算（简化 GEX 模型：Dealer 多 Call / 空 Put），可在「⚙ 配置」中手动覆盖（保存在本地浏览器）。0DTE 仓位会盘中快速改变结构，正确用法是：<b>盘前看自动 Base Case → 盘中监控 Flip / Wall 突破 → Alert 自动触发</b>。本页面不构成任何投资建议。
+  </footer>
+</div>
+
+<!-- ===== 配置抽屉 ===== -->
+<div class="drawer-mask" id="drawer-mask" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <h3>配置 Gamma 关键位</h3>
+  <div class="dsub">当前标的：<b id="drawer-ticker" style="color:var(--cyan)"></b><br>默认值来自 CBOE 期权链的每日自动估算（简化 GEX 模型）。如你有 SpotGamma 等更准的数据源，可在此手动覆盖，保存在本机浏览器；「恢复」即回到自动计算值。</div>
+  <div class="fld">
+    <label>Gamma Regime（市场状态）</label>
+    <select id="cfg-regime">
+      <option value="pos">正 Gamma · 震荡环境</option>
+      <option value="neg">负 Gamma · 趋势环境</option>
+      <option value="warn">贴近 Flip · 切换临界</option>
+    </select>
+  </div>
+  <div class="fld-row">
+    <div class="fld"><label>Gamma Flip</label><input id="cfg-flip" type="number" step="0.01"></div>
+    <div class="fld"><label>0DTE 集中位</label><input id="cfg-odte" type="number" step="0.01"></div>
+  </div>
+  <div class="fld-row">
+    <div class="fld"><label>Call Wall</label><input id="cfg-call" type="number" step="0.01"></div>
+    <div class="fld"><label>Put Wall</label><input id="cfg-put" type="number" step="0.01"></div>
+  </div>
+  <div class="fld">
+    <label>0DTE Gamma 强度</label>
+    <select id="cfg-odtes">
+      <option value="强">强</option><option value="中">中</option><option value="弱">弱</option>
+    </select>
+  </div>
+  <div class="dbtns">
+    <button class="btn btn-p" onclick="saveConfig()">保存并应用</button>
+    <button class="btn btn-s" onclick="resetConfig()">恢复自动值</button>
+  </div>
+  <div class="dnote">提示：0DTE 仓位会让结构盘中快速变化，重要事件（CPI / FOMC / 财报）后建议重新配置。Wall 位置整体迁移时，四个价位都需要更新。</div>
+</div>
+<div class="toast" id="toast">已保存</div>
+
+<script>
+/* ================= 默认配置（示例值，用户应每日更新） ================= */
+const DEFAULTS = {
+  QQQ:  { label:"QQQ",  sub:"NDX · 科技股",   regime:"neg",  flip:605, callWall:620, putWall:600, odte:615, odteS:"强",
+          events:[["08:30","初请失业金人数","中"],["10:00","ISM 服务业 PMI","高"],["盘后","NVDA 财报","高"]] },
+  SPY:  { label:"SPY",  sub:"SPX · 大盘",     regime:"pos",  flip:655, callWall:670, putWall:650, odte:665, odteS:"中",
+          events:[["08:30","初请失业金人数","中"],["10:00","ISM 服务业 PMI","高"]] },
+  NVDA: { label:"NVDA", sub:"AI 核心",        regime:"warn", flip:182, callWall:190, putWall:175, odte:186, odteS:"强",
+          events:[["盘后","NVDA 财报","极高"],["盘后+30m","Gamma 位需重算","系统"]] },
+  TSLA: { label:"TSLA", sub:"高 Gamma 个股",  regime:"neg",  flip:238, callWall:245, putWall:230, odte:245, odteS:"强",
+          events:[["盘中","关注 Call Wall 攻防","高"]] },
+};
+const STATES = [
+  {e:"🟢", t:"状态 A · 正 Gamma 区间内", d:"Dealer 高抛低吸压制波动，均值回归概率高。", s:"策略：不追涨杀跌，区间反向操作。"},
+  {e:"🟡", t:"状态 B · 接近 Gamma Flip", d:"Flip 上下是两个完全不同的市场，最值得预警的位置。", s:"信号：⚠️ 距 Flip < 0.5%，注意波动状态切换。"},
+  {e:"🔴", t:"状态 C · 负 Gamma", d:"涨跌都会被 Dealer 对冲放大，趋势自我强化。", s:"策略：突破比平时更值得相信。"},
+  {e:"🚨", t:"状态 D · 负 Gamma + 突破 Wall", d:"机械助推全力发动，最重要的交易信号。", s:"信号：🚨 Gamma Acceleration 警报触发。"},
+];
+const REGIME_TXT = {
+  pos:{t:"正 Gamma · 震荡环境", s:"Dealer 逆势对冲，压波动，均值回归概率高"},
+  neg:{t:"负 Gamma · 趋势环境", s:"Dealer 对冲方向与价格同向，突破更可信"},
+  warn:{t:"贴近 Gamma Flip · 切换临界", s:"Flip 上下是两个市场，注意波动状态切换"},
+};
+
+/* ================= 配置存取（自动计算 → 手动覆盖 → 示例兜底） ================= */
+const LS_KEY = "gammaRadarConfig.v1";
+let AUTO = null;   // gamma-config.json：每日自动计算的估算 Gamma 位
+function loadConfig(){
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }catch(e){}
+  const cfg = {};
+  for(const k in DEFAULTS){
+    let base = Object.assign({}, DEFAULTS[k], {src:"示例值"});
+    const a = AUTO && AUTO.tickers && AUTO.tickers[k];
+    if(a && a.flip){
+      base = Object.assign(base, {
+        flip:a.flip, callWall:a.callWall, putWall:a.putWall,
+        odte:a.odte, odteS:a.odteS, regime:a.regime, gex:a.gex_b,
+        src:"自动计算 " + (AUTO.date||""),
+      });
+    }
+    if(saved[k]) base = Object.assign(base, saved[k], {src:"手动配置"});
+    cfg[k] = base;
+  }
+  return cfg;
+}
+async function fetchGammaConfig(){
+  try{
+    const r = await fetch("gamma-config.json", {cache:"no-store"});
+    if(r.ok){ AUTO = await r.json(); CFG = loadConfig(); render(cur); }
+  }catch(e){ /* 本地 file:// 打开或无配置时忽略 */ }
+}
+let CFG = loadConfig();
+let cur = "QQQ";
+
+/* ================= 实时行情 ================= */
+const SYMBOLS = ["QQQ","SPY","NVDA","TSLA",".VIX","US10Y",".NDX",".SPX"];
+let QUOTES = {};   // symbol -> {last, chgPct, chg, prevClose, time}
+let liveOK = false;
+
+async function fetchQuotes(){
+  const url = "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols="
+    + SYMBOLS.join("|") + "&output=json&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1";
+  try{
+    const r = await fetch(url, {cache:"no-store"});
+    const d = await r.json();
+    const arr = d.FormattedQuoteResult.FormattedQuote;
+    arr.forEach(q => {
+      if(!q.last) return;
+      const num = s => parseFloat(String(s).replace(/[,+%]/g,""));
+      QUOTES[q.symbol] = {
+        last: num(q.last),
+        chgPct: num(q.change_pct),
+        chg: num(q.change),
+        time: q.last_time,
+      };
+    });
+    liveOK = true;
+    const t = QUOTES[cur] && QUOTES[cur].time ? new Date(QUOTES[cur].time) : new Date();
+    $("live-chip").className = "live-chip";
+    $("live-chip").textContent = "延迟行情 · 更新于 " +
+      t.toLocaleTimeString("zh-CN",{hour12:false,timeZone:"America/New_York"}) + " ET";
+  }catch(e){
+    liveOK = false;
+    $("live-chip").className = "live-chip err";
+    $("live-chip").textContent = "行情源暂不可用 · 显示上次数据";
+  }
+  render(cur);
+}
+
+/* ================= 会话时段（美东） ================= */
+function etNow(){ return new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"})); }
+function sessionInfo(n){
+  const day = n.getDay(), mins = n.getHours()*60 + n.getMinutes();
+  if(day===0||day===6) return {key:"closed", label:"休市 CLOSED"};
+  if(mins >= 240 && mins < 570)  return {key:"pre",  label:"盘前 PRE-MARKET"};
+  if(mins >= 570 && mins < 960)  return {key:"reg",  label:"盘中 REGULAR"};
+  if(mins >= 960 && mins < 1200) return {key:"post", label:"盘后 AFTER-HOURS"};
+  return {key:"closed", label:"已收盘"};
+}
+function tick(){
+  const n = etNow();
+  const s = sessionInfo(n);
+  const b = $("session-badge");
+  b.className = "badge-session " + s.key; b.textContent = s.label;
+  let cd = "";
+  const target = new Date(n);
+  if(s.key==="pre"){ target.setHours(9,30,0,0); cd = " · 距开盘 " + fmtDiff(target-n); }
+  else if(s.key==="reg"){ target.setHours(16,0,0,0); cd = " · 距收盘 " + fmtDiff(target-n); }
+  $("clock").textContent = "ET " + n.toLocaleDateString("zh-CN") + " " +
+    n.toLocaleTimeString("zh-CN",{hour12:false}) + cd;
+}
+function fmtDiff(ms){ const h=Math.floor(ms/3.6e6), m=Math.floor(ms%3.6e6/6e4); return h+"h "+m+"m"; }
+
+/* ================= 规则模型：加速概率 ================= */
+function calcAccel(d, px, vix){
+  let up = 30, dn = 25; const factors = [];
+  const pctTo = lv => ((px - lv) / lv * 100);
+  if(d.regime==="neg"){ up+=22; dn+=22; factors.push(["负Gamma · 趋势自我强化","hot"]); }
+  if(d.regime==="warn"){ up+=12; dn+=12; factors.push(["贴近Flip · 临界","hot"]); }
+  if(d.regime==="pos"){ factors.push(["正Gamma · 压波动","cold"]); }
+  const dFlip = pctTo(d.flip);
+  factors.push(["距Flip " + (dFlip>=0?"+":"") + dFlip.toFixed(1) + "%", Math.abs(dFlip)<1?"hot":""]);
+  if(px > d.flip){ up+=10; factors.push(["价格在Flip上方","hot"]); } else { dn+=10; factors.push(["价格在Flip下方","cold"]); }
+  if(Math.abs(pctTo(d.callWall)) < 1){ up+=10; factors.push(["逼近Call Wall","hot"]); }
+  if(Math.abs(pctTo(d.putWall)) < 1){ dn+=10; factors.push(["逼近Put Wall","hot"]); }
+  if(px > d.callWall){ up+=18; factors.push(["已突破Call Wall","hot"]); }
+  if(px < d.putWall){ dn+=18; factors.push(["已跌破Put Wall","hot"]); }
+  if(vix != null){
+    if(vix.chgPct < 0){ up+=8; factors.push(["VIX " + vix.chgPct.toFixed(1) + "% ↓","hot"]); }
+    else { dn+=8; factors.push(["VIX +" + vix.chgPct.toFixed(1) + "% ↑","cold"]); }
+  }
+  let tot = up + dn;
+  up = Math.round(up/tot*100); dn = 100 - up;
+  return {up: Math.min(95,Math.max(5,up)), dn: Math.min(95,Math.max(5,dn)), factors};
+}
+
+/* ================= 渲染 ================= */
+function $(id){return document.getElementById(id)}
+function fmt(n){ return n==null ? "—" : n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtI(n){ return n==null ? "—" : Math.round(n).toLocaleString("en-US"); }
+
+function render(key){
+  const d = CFG[key];
+  const q = QUOTES[key];
+  const px = q ? q.last : null;
+  const vix = QUOTES[".VIX"], tnx = QUOTES["US10Y"], ndx = QUOTES[".NDX"], spx = QUOTES[".SPX"];
+
+  /* Regime 横幅 */
+  $("ticker-name-1").textContent = d.label + " · " + d.sub;
+  const rb = $("regime-banner"); rb.className = "regime " + d.regime;
+  $("regime-title").textContent = REGIME_TXT[d.regime].t;
+  $("regime-sub").textContent = REGIME_TXT[d.regime].s;
+  $("cur-price").textContent = fmt(px);
+  if(q){
+    const cls = q.chgPct >= 0 ? "up" : "down";
+    $("cur-chg").innerHTML = `<span class="${cls}">${q.chgPct>=0?"+":""}${q.chgPct.toFixed(2)}%</span>`;
+  } else $("cur-chg").textContent = "";
+
+  /* 指标表 */
+  const gammaTag = d.regime==="pos" ? ["正","tag pos"] : d.regime==="neg" ? ["负","tag neg"] : ["临界","tag mid"];
+  const arrow = v => v==null ? "" : (v.chgPct<0 ? " ↓" : " ↑");
+  const idxQ = key==="SPY" ? spx : ndx;
+  const idxName = key==="SPY" ? "标普500" : "纳指100";
+  const mrows = [
+    ["Dealer Gamma", `<span class="v tag ${gammaTag[1].split(" ")[1]}">${gammaTag[0]}</span>`],
+    ["Gamma Flip", fmt(d.flip)], ["Call Wall", fmt(d.callWall)], ["Put Wall", fmt(d.putWall)],
+    ["0DTE Gamma", `<span class="v tag mid">${d.odteS}</span>`],
+    ["VIX", vix ? fmt(vix.last) + arrow(vix) : "—"],
+    ["美债10Y", tnx ? tnx.last.toFixed(2) + "%" + arrow(tnx) : "—"],
+    [idxName, idxQ ? fmtI(idxQ.last) + " " + `<span class="${idxQ.chgPct>=0?"up":"down"}">${idxQ.chgPct>=0?"+":""}${idxQ.chgPct.toFixed(2)}%</span>` : "—"],
+  ];
+  if(d.gex != null) mrows.splice(1, 0, ["总 GEX", `<span style="color:${d.gex>=0?"var(--cyan)":"var(--orange)"}">${d.gex>=0?"+":""}${d.gex}B $/1%</span>`]);
+  $("metrics").innerHTML = mrows.map(([k,v]) => `<div class="m"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+
+  /* 结论 */
+  const cc = $("conclusion"); cc.className = "conclusion " + (d.regime==="pos"?"pos":d.regime==="warn"?"warn":"");
+  if(px){
+    if(d.regime==="neg") cc.innerHTML = `<b>负 Gamma 趋势环境。</b>${d.label} 现价 ${fmt(px)}，${px>d.flip?"处于":"已跌破"} Gamma Flip (${fmtI(d.flip)})${px>d.flip?"上方":"下方"}；上方关注 <b>${fmtI(d.callWall)} Call Wall</b>，突破存在加速可能；${fmtI(d.flip)} 下方波动将快速放大。`;
+    else if(d.regime==="pos") cc.innerHTML = `<b>正 Gamma 震荡环境。</b>${d.label} 现价 ${fmt(px)}，位于 ${fmtI(d.putWall)}–${fmtI(d.callWall)} 区间内，Dealer 高抛低吸压制波动，<b>区间内不追涨杀跌</b>。`;
+    else cc.innerHTML = `<b>⚠️ 距 Gamma Flip 仅 ${Math.abs((px-d.flip)/d.flip*100).toFixed(1)}%，处于切换临界。</b>Flip (${fmtI(d.flip)}) 上下是两个完全不同的市场，重要事件后需重新配置关键位。`;
+  } else cc.innerHTML = "行情加载中…";
+
+  /* 加速概率 */
+  const a = px ? calcAccel(d, px, vix) : {up:50,dn:50,factors:[["等待行情",""]]};
+  $("bar-up").style.width = a.up+"%"; $("bar-dn").style.width = a.dn+"%";
+  $("pct-up").textContent = a.up+"%"; $("pct-dn").textContent = a.dn+"%";
+  $("factors").innerHTML = a.factors.map(([f,c])=>`<span class="factor ${c}">${f}</span>`).join("");
+
+  /* 价位地图 */
+  $("levels-src").textContent = "关键位来源：" + d.src + "（估算值）";
+  const pts = [d.flip, d.callWall, d.putWall, d.odte, px].filter(v=>v!=null);
+  let lo = Math.min(...pts), hi = Math.max(...pts);
+  const pad = (hi-lo)*0.15 || hi*0.01; lo -= pad; hi += pad;
+  const pos = p => ((hi-p)/(hi-lo)*100);
+  const levels = [
+    {p:d.callWall, name:"Call Wall", cls:"wall-call"},
+    {p:d.odte, name:"0DTE 集中位", cls:"odte"},
+    {p:d.flip, name:"Gamma Flip", cls:"flip"},
+    {p:d.putWall, name:"Put Wall", cls:"wall-put"},
+  ].sort((x,y)=>y.p-x.p);
+  let html = "";
+  levels.forEach(l => {
+    html += `<div class="level ${l.cls}" style="top:${pos(l.p)}%">
+      <span class="lv">${fmtI(l.p)}</span><div class="ln"></div><span class="nm">${l.name}</span></div>`;
+  });
+  if(px) html += `<div class="cur" style="top:${pos(px)}%"><div class="tri"></div><div class="cp">${fmt(px)}</div></div>`;
+  $("pmap").innerHTML = html;
+
+  $("watch-note").innerHTML = `盘中只盯 <b>${fmtI(d.putWall)} / ${fmtI(d.flip)} / ${fmtI(d.callWall)}</b>。` +
+    (d.regime==="pos"
+      ? `正 Gamma 下两侧 Wall 易形成磁吸，区间内反向思维；只有<span class="danger">有效突破 ${fmtI(d.callWall)} 或跌破 ${fmtI(d.putWall)}</span>才切换为趋势思维。`
+      : `${fmtI(d.flip)} 之上回调易被承接；<span class="danger">跌破 ${fmtI(d.flip)} → Gamma 转负加深</span>，下跌自我强化；跌破 ${fmtI(d.putWall)} 进入加速下跌区。`);
+
+  /* Alerts：基于真实价格判定 */
+  const alerts = [];
+  if(px){
+    const nearFlip = Math.abs((px-d.flip)/d.flip) < 0.005;
+    alerts.push({ fire:nearFlip, cls:"warn-f", ic:"⚠️",
+      t:`|price − ${fmtI(d.flip)}| < 0.5%`,
+      html:`<b>Gamma Flip 贴近警报</b><br>当前距 Flip ${(Math.abs((px-d.flip)/d.flip*100)).toFixed(2)}%${nearFlip?"，微观结构处于切换临界点":"，安全距离内"}` });
+    const brokeCall = px > d.callWall;
+    alerts.push({ fire:brokeCall && d.regime!=="pos", cls:"fire", ic:"🚨",
+      t:`price > ${fmtI(d.callWall)} & Gamma≤0`,
+      html:`<b>Upside Gamma Acceleration</b><br>${brokeCall?`已突破 Call Wall ${fmtI(d.callWall)}，Dealer 对冲可能推动加速上涨`:`突破 ${fmtI(d.callWall)} 且 0DTE Call 放大时触发`}` });
+    const brokePut = px < d.putWall;
+    alerts.push({ fire:brokePut, cls:"fire", ic:"🔻",
+      t:`price < ${fmtI(d.putWall)}`,
+      html:`<b>Downside Acceleration</b><br>${brokePut?`已跌破 Put Wall ${fmtI(d.putWall)}，注意下跌加速`:`跌破 ${fmtI(d.putWall)} 且 VIX 上行时触发`}` });
+  }
+  $("alerts").innerHTML = alerts.map(al =>
+    `<div class="alert ${al.fire?al.cls:"info"}"><div class="ic">${al.ic}</div>
+     <div><div>${al.html}</div><div class="at">触发条件：${al.t}</div></div>
+     <span class="st ${al.fire?"on":"off"}">${al.fire?"已触发":"待命"}</span></div>`).join("");
+
+  /* 情景推演 */
+  const zone = px==null ? -1 : px>d.callWall ? 1 : px<d.putWall ? 3 : px<d.flip ? 2 : 0;
+  const rows = [
+    [`${fmtI(d.flip)} – ${fmtI(d.callWall)}`, d.regime==="pos"?"区间震荡，均值回归":"震荡偏强，区间内部不追涨", ""],
+    [`> ${fmtI(d.callWall)}`, d.regime==="pos"?"正Gamma衰减，观察是否放量":"关注逼空 / 加速上涨", "hl-up"],
+    [`< ${fmtI(d.flip)}`, "波动放大，Gamma 转负加深", "hl-dn"],
+    [`< ${fmtI(d.putWall)}`, "关注下跌加速", "hl-dn"],
+  ];
+  $("scenarios").innerHTML = rows.map(([c,r,cls],i)=>
+    `<div class="row ${cls} ${i===zone?"now":""}"><span class="cond">${c}</span><span class="res">${r}</span></div>`).join("");
+
+  const oneMap = {
+    neg:`<b>今日一句话：</b>不适合在区间内部追涨，真正值得观察的是 <b>${fmtI(d.callWall)} 突破</b>和 <b>${fmtI(d.flip)} 跌破</b>。`,
+    pos:`<b>今日一句话：</b>正 Gamma 区间市，利润来自 <b>耐心</b> 而不是方向判断。`,
+    warn:`<b>今日一句话：</b>站在 Flip 边上赌方向，赌的不是基本面，是 <b>波动状态的切换</b>。`,
+  };
+  $("oneline").innerHTML = oneMap[d.regime];
+
+  /* 事件 */
+  $("events").innerHTML = d.events.map(([t,n,i]) =>
+    `<div class="evt"><span class="et">${t}</span><span>${n}</span><span class="ei">${i}</span></div>`).join("");
+
+  /* 四种状态 */
+  const stateIdx = px!=null && d.regime!=="pos" && px>d.callWall ? 3
+    : d.regime==="neg" ? 2
+    : d.regime==="warn" || (px!=null && Math.abs((px-d.flip)/d.flip)<0.005) ? 1 : 0;
+  $("states").innerHTML = STATES.map((s,i) =>
+    `<div class="state ${i===stateIdx?"cur-state":""}">
+      <h3>${s.e} ${s.t}${i===stateIdx?'<span class="now">当前</span>':""}</h3>
+      <p>${s.d}</p><div class="sig">${s.s}</div></div>`).join("");
+
+  /* Tabs 上的价格 */
+  document.querySelectorAll(".tab").forEach(t => {
+    const k = t.dataset.k, qq = QUOTES[k];
+    const el = t.querySelector(".tp");
+    if(el) el.remove();
+    if(qq){
+      const s = document.createElement("span");
+      s.className = "tp " + (qq.chgPct>=0?"up":"down");
+      s.textContent = fmt(qq.last) + " " + (qq.chgPct>=0?"+":"") + qq.chgPct.toFixed(2) + "%";
+      t.appendChild(s);
+    }
+  });
+}
+
+/* ================= Tabs ================= */
+const tabsEl = $("tabs");
+Object.keys(DEFAULTS).forEach(k => {
+  const d = DEFAULTS[k];
+  const el = document.createElement("div");
+  el.className = "tab" + (k===cur?" active":""); el.dataset.k = k;
+  el.innerHTML = `${d.label}<small>${d.sub}</small>`;
+  el.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    el.classList.add("active"); cur = k; render(k);
+  };
+  tabsEl.appendChild(el);
+});
+
+/* ================= 配置抽屉 ================= */
+function openDrawer(){
+  const d = CFG[cur];
+  $("drawer-ticker").textContent = d.label + " · " + d.sub;
+  $("cfg-regime").value = d.regime;
+  $("cfg-flip").value = d.flip; $("cfg-call").value = d.callWall;
+  $("cfg-put").value = d.putWall; $("cfg-odte").value = d.odte;
+  $("cfg-odtes").value = d.odteS;
+  $("drawer").classList.add("open"); $("drawer-mask").classList.add("open");
+}
+function closeDrawer(){ $("drawer").classList.remove("open"); $("drawer-mask").classList.remove("open"); }
+function saveConfig(){
+  CFG[cur].regime = $("cfg-regime").value;
+  CFG[cur].flip = parseFloat($("cfg-flip").value) || CFG[cur].flip;
+  CFG[cur].callWall = parseFloat($("cfg-call").value) || CFG[cur].callWall;
+  CFG[cur].putWall = parseFloat($("cfg-put").value) || CFG[cur].putWall;
+  CFG[cur].odte = parseFloat($("cfg-odte").value) || CFG[cur].odte;
+  CFG[cur].odteS = $("cfg-odtes").value;
+  const toSave = {};
+  for(const k in CFG){ const {events,label,sub,...rest} = CFG[k]; toSave[k] = rest; }
+  localStorage.setItem(LS_KEY, JSON.stringify(toSave));
+  closeDrawer(); render(cur); toast("已保存 · " + cur + " 关键位已更新");
+}
+function resetConfig(){
+  let saved = {}; try{ saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(e){}
+  delete saved[cur];
+  localStorage.setItem(LS_KEY, JSON.stringify(saved));
+  CFG = loadConfig();
+  openDrawer(); render(cur); toast(cur + (AUTO && AUTO.tickers && AUTO.tickers[cur] ? " 已恢复为自动计算值" : " 已恢复示例值"));
+}
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+document.addEventListener("keydown", e => { if(e.key==="Escape") closeDrawer(); });
+
+/* ================= 启动 ================= */
+tick(); setInterval(tick, 1000);
+fetchGammaConfig();          // 先拉每日自动计算的 Gamma 位
+fetchQuotes();
+setInterval(fetchQuotes, 60000);
+render(cur);
+</script>
+</body>
+</html>

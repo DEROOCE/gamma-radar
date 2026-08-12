@@ -1,0 +1,35 @@
+name: Daily Gamma Levels
+
+on:
+  schedule:
+    # 北京时间周一至周五 07:00 = UTC 周日至周四 23:00
+    - cron: "0 23 * * 0-4"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compute gamma levels from CBOE chains
+        run: python compute_gamma.py gamma-config.json
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "gamma-radar-bot"
+          git config user.email "gamma-radar-bot@users.noreply.github.com"
+          git add gamma-config.json
+          if git diff --cached --quiet; then
+            echo "No change in gamma-config.json"
+          else
+            git commit -m "chore: update gamma levels $(date -u +%F)"
+            git push
+          fi
