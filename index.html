@@ -62,6 +62,32 @@
   .tab.active small{color:var(--cyan)}
   .tab .tp{font-family:var(--mono);font-size:12px;font-weight:700}
   .tab .tp.up{color:var(--up)} .tab .tp.down{color:var(--down)}
+  .tab{position:relative}
+  .tab-add{border-style:dashed;color:var(--faint);align-items:center;justify-content:center;font-size:18px;min-width:90px}
+  .tab-add:hover{color:var(--cyan);border-color:var(--cyan)}
+  .tab-x{
+    position:absolute;top:4px;right:7px;font-size:13px;color:var(--faint);
+    width:16px;height:16px;line-height:15px;text-align:center;border-radius:50%;
+  }
+  .tab-x:hover{background:rgba(255,77,79,.25);color:var(--up)}
+
+  /* ===== 添加标的弹窗 ===== */
+  .add-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:98;opacity:0;pointer-events:none;transition:opacity .25s}
+  .add-mask.open{opacity:1;pointer-events:auto}
+  .add-modal{
+    position:fixed;top:22%;left:50%;transform:translateX(-50%) translateY(-16px);z-index:101;
+    width:340px;max-width:92vw;background:var(--bg2);border:1px solid var(--line2);border-radius:16px;
+    padding:22px;opacity:0;pointer-events:none;transition:all .25s;
+  }
+  .add-modal.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  .add-modal h3{font-size:16px;margin-bottom:6px}
+  .add-modal p{font-size:12px;color:var(--faint);line-height:1.7;margin-bottom:14px}
+  .add-modal input{
+    width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line2);
+    background:var(--card);color:var(--txt);font-family:var(--mono);font-size:16px;
+    text-transform:uppercase;letter-spacing:2px;outline:none;margin-bottom:14px;
+  }
+  .add-modal input:focus{border-color:var(--cyan)}
 
   .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
   @media(max-width:960px){.grid{grid-template-columns:1fr}}
@@ -352,6 +378,18 @@
 </div>
 <div class="toast" id="toast">已保存</div>
 
+<!-- ===== 添加标的弹窗 ===== -->
+<div class="add-mask" id="add-mask" onclick="closeAdd()"></div>
+<div class="add-modal" id="add-modal">
+  <h3>添加自定义标的</h3>
+  <p>输入美股代码（如 AMD、SMH、PLTR）。行情立即接入真实数据；Gamma 关键位先按现价生成占位，请在「⚙ 配置」中精调。如需纳入每日云端自动计算，把代码发给管理员加入 watchlist。</p>
+  <input id="add-input" placeholder="TICKER" maxlength="10" onkeydown="if(event.key==='Enter')addTicker()">
+  <div class="dbtns">
+    <button class="btn btn-p" onclick="addTicker()">添加</button>
+    <button class="btn btn-s" onclick="closeAdd()">取消</button>
+  </div>
+</div>
+
 <script>
 /* ================= 默认配置（示例值，用户应每日更新） ================= */
 const DEFAULTS = {
@@ -376,6 +414,16 @@ const REGIME_TXT = {
   warn:{t:"贴近 Gamma Flip · 切换临界", s:"Flip 上下是两个市场，注意波动状态切换"},
 };
 
+/* ================= 自定义标的 ================= */
+const CUSTOM_KEY = "gammaRadarCustom.v1";
+function getCustom(){ try{ return JSON.parse(localStorage.getItem(CUSTOM_KEY)||"[]"); }catch(e){ return []; } }
+function setCustom(a){ localStorage.setItem(CUSTOM_KEY, JSON.stringify(a)); }
+function allTickers(){ return Object.keys(DEFAULTS).concat(getCustom().filter(s=>!DEFAULTS[s])); }
+function customBase(k){
+  return {label:k, sub:"自定义标的", regime:"pos", flip:null, callWall:null, putWall:null,
+          odte:null, odteS:"中", src:"待配置", events:[["—","未配置事件","—"]]};
+}
+
 /* ================= 配置存取（自动计算 → 手动覆盖 → 示例兜底） ================= */
 const LS_KEY = "gammaRadarConfig.v1";
 let AUTO = null;   // gamma-config.json：每日自动计算的估算 Gamma 位
@@ -383,8 +431,8 @@ function loadConfig(){
   let saved = {};
   try{ saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }catch(e){}
   const cfg = {};
-  for(const k in DEFAULTS){
-    let base = Object.assign({}, DEFAULTS[k], {src:"示例值"});
+  allTickers().forEach(k => {
+    let base = DEFAULTS[k] ? Object.assign({}, DEFAULTS[k], {src:"示例值"}) : customBase(k);
     const a = AUTO && AUTO.tickers && AUTO.tickers[k];
     if(a && a.flip){
       base = Object.assign(base, {
@@ -395,7 +443,7 @@ function loadConfig(){
     }
     if(saved[k]) base = Object.assign(base, saved[k], {src:"手动配置"});
     cfg[k] = base;
-  }
+  });
   return cfg;
 }
 async function fetchGammaConfig(){
@@ -408,13 +456,13 @@ let CFG = loadConfig();
 let cur = "QQQ";
 
 /* ================= 实时行情 ================= */
-const SYMBOLS = ["QQQ","SPY","NVDA","TSLA",".VIX","US10Y",".NDX",".SPX"];
+const MACRO_SYMBOLS = [".VIX","US10Y",".NDX",".SPX"];
 let QUOTES = {};   // symbol -> {last, chgPct, chg, prevClose, time}
 let liveOK = false;
 
 async function fetchQuotes(){
   const url = "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols="
-    + SYMBOLS.join("|") + "&output=json&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1";
+    + allTickers().concat(MACRO_SYMBOLS).join("|") + "&output=json&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1";
   try{
     const r = await fetch(url, {cache:"no-store"});
     const d = await r.json();
@@ -496,8 +544,14 @@ function fmtI(n){ return n==null ? "—" : Math.round(n).toLocaleString("en-US")
 
 function render(key){
   const d = CFG[key];
+  if(!d) return;
   const q = QUOTES[key];
   const px = q ? q.last : null;
+  /* 自定义标的尚无关键位时，按现价生成占位（用户应在 ⚙ 中精调） */
+  if(px && d.flip == null){
+    d.flip = Math.round(px); d.callWall = Math.round(px*1.03);
+    d.putWall = Math.round(px*0.97); d.odte = Math.round(px);
+  }
   const vix = QUOTES[".VIX"], tnx = QUOTES["US10Y"], ndx = QUOTES[".NDX"], spx = QUOTES[".SPX"];
 
   /* Regime 横幅 */
@@ -542,24 +596,29 @@ function render(key){
   $("factors").innerHTML = a.factors.map(([f,c])=>`<span class="factor ${c}">${f}</span>`).join("");
 
   /* 价位地图 */
-  $("levels-src").textContent = "关键位来源：" + d.src + "（估算值）";
+  $("levels-src").textContent = "关键位来源：" + d.src + (d.src==="待配置" ? "（已按现价生成占位，请点 ⚙ 精调）" : "（估算值）");
   const pts = [d.flip, d.callWall, d.putWall, d.odte, px].filter(v=>v!=null);
-  let lo = Math.min(...pts), hi = Math.max(...pts);
-  const pad = (hi-lo)*0.15 || hi*0.01; lo -= pad; hi += pad;
-  const pos = p => ((hi-p)/(hi-lo)*100);
-  const levels = [
-    {p:d.callWall, name:"Call Wall", cls:"wall-call"},
-    {p:d.odte, name:"0DTE 集中位", cls:"odte"},
-    {p:d.flip, name:"Gamma Flip", cls:"flip"},
-    {p:d.putWall, name:"Put Wall", cls:"wall-put"},
-  ].sort((x,y)=>y.p-x.p);
-  let html = "";
-  levels.forEach(l => {
-    html += `<div class="level ${l.cls}" style="top:${pos(l.p)}%">
-      <span class="lv">${fmtI(l.p)}</span><div class="ln"></div><span class="nm">${l.name}</span></div>`;
-  });
-  if(px) html += `<div class="cur" style="top:${pos(px)}%"><div class="tri"></div><div class="cp">${fmt(px)}</div></div>`;
-  $("pmap").innerHTML = html;
+  if(pts.length < 2){
+    $("pmap").innerHTML = '<div style="color:var(--faint);font-size:13px;padding-top:160px;text-align:center">等待行情数据…</div>';
+    $("watch-note").innerHTML = "行情加载后自动生成关键位占位，点右上角 ⚙ 配置精确值。";
+  } else {
+    let lo = Math.min(...pts), hi = Math.max(...pts);
+    const pad = (hi-lo)*0.15 || hi*0.01; lo -= pad; hi += pad;
+    const pos = p => ((hi-p)/(hi-lo)*100);
+    const levels = [
+      {p:d.callWall, name:"Call Wall", cls:"wall-call"},
+      {p:d.odte, name:"0DTE 集中位", cls:"odte"},
+      {p:d.flip, name:"Gamma Flip", cls:"flip"},
+      {p:d.putWall, name:"Put Wall", cls:"wall-put"},
+    ].filter(l=>l.p!=null).sort((x,y)=>y.p-x.p);
+    let html = "";
+    levels.forEach(l => {
+      html += `<div class="level ${l.cls}" style="top:${pos(l.p)}%">
+        <span class="lv">${fmtI(l.p)}</span><div class="ln"></div><span class="nm">${l.name}</span></div>`;
+    });
+    if(px) html += `<div class="cur" style="top:${pos(px)}%"><div class="tri"></div><div class="cp">${fmt(px)}</div></div>`;
+    $("pmap").innerHTML = html;
+  }
 
   $("watch-note").innerHTML = `盘中只盯 <b>${fmtI(d.putWall)} / ${fmtI(d.flip)} / ${fmtI(d.callWall)}</b>。` +
     (d.regime==="pos"
@@ -618,33 +677,64 @@ function render(key){
       <h3>${s.e} ${s.t}${i===stateIdx?'<span class="now">当前</span>':""}</h3>
       <p>${s.d}</p><div class="sig">${s.s}</div></div>`).join("");
 
-  /* Tabs 上的价格 */
-  document.querySelectorAll(".tab").forEach(t => {
-    const k = t.dataset.k, qq = QUOTES[k];
-    const el = t.querySelector(".tp");
-    if(el) el.remove();
-    if(qq){
-      const s = document.createElement("span");
-      s.className = "tp " + (qq.chgPct>=0?"up":"down");
-      s.textContent = fmt(qq.last) + " " + (qq.chgPct>=0?"+":"") + qq.chgPct.toFixed(2) + "%";
-      t.appendChild(s);
-    }
-  });
+  /* Tabs 上的价格（重建标签栏以刷新） */
+  buildTabs();
 }
 
 /* ================= Tabs ================= */
 const tabsEl = $("tabs");
-Object.keys(DEFAULTS).forEach(k => {
-  const d = DEFAULTS[k];
-  const el = document.createElement("div");
-  el.className = "tab" + (k===cur?" active":""); el.dataset.k = k;
-  el.innerHTML = `${d.label}<small>${d.sub}</small>`;
-  el.onclick = () => {
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    el.classList.add("active"); cur = k; render(k);
-  };
-  tabsEl.appendChild(el);
-});
+function buildTabs(){
+  tabsEl.innerHTML = "";
+  allTickers().forEach(k => {
+    const d = CFG[k] || DEFAULTS[k] || customBase(k);
+    const el = document.createElement("div");
+    el.className = "tab" + (k===cur?" active":""); el.dataset.k = k;
+    el.innerHTML = `${d.label}<small>${d.sub}</small>`;
+    const qq = QUOTES[k];
+    if(qq){
+      const s = document.createElement("span");
+      s.className = "tp " + (qq.chgPct>=0?"up":"down");
+      s.textContent = fmt(qq.last) + " " + (qq.chgPct>=0?"+":"") + qq.chgPct.toFixed(2) + "%";
+      el.appendChild(s);
+    }
+    if(!DEFAULTS[k]){
+      const x = document.createElement("span");
+      x.className = "tab-x"; x.textContent = "×"; x.title = "移除该标的";
+      x.onclick = ev => { ev.stopPropagation(); removeTicker(k); };
+      el.appendChild(x);
+    }
+    el.onclick = () => { cur = k; buildTabs(); render(k); };
+    tabsEl.appendChild(el);
+  });
+  const add = document.createElement("div");
+  add.className = "tab tab-add";
+  add.innerHTML = "＋<small>添加标的</small>";
+  add.onclick = openAdd;
+  tabsEl.appendChild(add);
+}
+function addTicker(){
+  const inp = $("add-input");
+  const sym = (inp.value||"").trim().toUpperCase();
+  if(!sym || !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)){ toast("代码格式不正确"); return; }
+  const list = getCustom();
+  if(DEFAULTS[sym] || list.includes(sym)){ toast(sym + " 已在列表中"); closeAdd(); return; }
+  list.push(sym); setCustom(list);
+  CFG = loadConfig(); closeAdd();
+  cur = sym; buildTabs(); fetchQuotes();
+  toast("已添加 " + sym + " · 关键位按现价生成占位，请点 ⚙ 精调");
+}
+function removeTicker(k){
+  if(!confirm("移除 " + k + "？其手动配置将一并清除。")) return;
+  setCustom(getCustom().filter(s=>s!==k));
+  let saved = {}; try{ saved = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(e){}
+  delete saved[k]; localStorage.setItem(LS_KEY, JSON.stringify(saved));
+  delete CFG[k]; delete QUOTES[k];
+  if(cur===k) cur = "QQQ";
+  CFG = loadConfig(); buildTabs(); render(cur);
+  toast("已移除 " + k);
+}
+function openAdd(){ $("add-mask").classList.add("open"); $("add-modal").classList.add("open"); setTimeout(()=>$("add-input").focus(),200); }
+function closeAdd(){ $("add-mask").classList.remove("open"); $("add-modal").classList.remove("open"); $("add-input").value=""; }
 
 /* ================= 配置抽屉 ================= */
 function openDrawer(){
@@ -680,7 +770,7 @@ function toast(msg){
   const t = $("toast"); t.textContent = msg; t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"), 2200);
 }
-document.addEventListener("keydown", e => { if(e.key==="Escape") closeDrawer(); });
+document.addEventListener("keydown", e => { if(e.key==="Escape"){ closeDrawer(); closeAdd(); } });
 
 /* ================= 启动 ================= */
 tick(); setInterval(tick, 1000);

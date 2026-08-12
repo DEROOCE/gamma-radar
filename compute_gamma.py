@@ -2,10 +2,15 @@
 """从 CBOE 延迟期权链计算 Gamma 关键位，输出 gamma-config.json
 模型：SqueezeMetrics 风格简化 GEX（Dealer 做多 Call=+、做空 Put=-），$ per 1% move
 """
-import json, math, re, sys, urllib.request
+import json, math, os, re, sys, urllib.request
 from datetime import date, datetime
 
-TICKERS = ["QQQ", "SPY", "NVDA", "TSLA"]
+# 优先读 watchlist 文件（一行一个代码，# 开头为注释），否则用默认列表
+if os.path.exists("tickers.txt"):
+    TICKERS = [l.strip().upper() for l in open("tickers.txt")
+               if l.strip() and not l.startswith("#")]
+else:
+    TICKERS = ["QQQ", "SPY", "NVDA", "TSLA"]
 OUT = sys.argv[1] if len(sys.argv) > 1 else "gamma-radar-site/gamma-config.json"
 R = 0.043  # 无风险利率近似
 

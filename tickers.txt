@@ -1,0 +1,6 @@
+# Gamma Radar 每日自动计算的标的清单（一行一个，# 为注释）
+# 美股/ETF 代码，需有 CBOE 期权链
+QQQ
+SPY
+NVDA
+TSLA
