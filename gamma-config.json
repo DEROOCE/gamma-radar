@@ -1,49 +1,49 @@
 {
- "updated": "2026-08-23 23:19",
- "date": "2026-08-23",
+ "updated": "2026-08-24 23:21",
+ "date": "2026-08-24",
  "tickers": {
   "QQQ": {
-   "spot": 714.25,
+   "spot": 706.75,
    "gex_b": -0.0,
-   "flip": 715,
-   "callWall": 730,
+   "flip": 712,
+   "callWall": 700,
    "putWall": 700,
-   "odte": 730,
+   "odte": 705,
    "odteS": "弱",
-   "odteRatio": 0.0,
-   "regime": "warn"
+   "odteRatio": 0.09,
+   "regime": "neg"
   },
   "SPY": {
-   "spot": 765.72,
+   "spot": 764.01,
    "gex_b": -0.01,
    "flip": 770,
    "callWall": 770,
    "putWall": 765,
-   "odte": 770,
+   "odte": 764,
    "odteS": "弱",
-   "odteRatio": 0.0,
+   "odteRatio": 0.13,
    "regime": "neg"
   },
   "NVDA": {
-   "spot": 215.38,
+   "spot": 208.75,
    "gex_b": 0.0,
-   "flip": 215,
+   "flip": 188,
    "callWall": 220,
-   "putWall": 215,
-   "odte": 220,
+   "putWall": 200,
+   "odte": 210,
    "odteS": "弱",
-   "odteRatio": 0.0,
-   "regime": "warn"
+   "odteRatio": 0.09,
+   "regime": "pos"
   },
   "TSLA": {
-   "spot": 363.92,
+   "spot": 349.38,
    "gex_b": 0.0,
    "flip": 337,
-   "callWall": 360,
+   "callWall": 350,
    "putWall": 350,
-   "odte": 360,
-   "odteS": "弱",
-   "odteRatio": 0.0,
+   "odte": 350,
+   "odteS": "中",
+   "odteRatio": 0.16,
    "regime": "pos"
   }
  }
