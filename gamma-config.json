@@ -1,49 +1,49 @@
 {
- "updated": "2026-10-02 02:00",
- "date": "2026-10-02",
+ "updated": "2026-10-05 01:37",
+ "date": "2026-10-05",
  "tickers": {
   "QQQ": {
-   "spot": 743.6,
-   "gex_b": 0.0,
-   "flip": 741,
-   "callWall": 745,
-   "putWall": 740,
-   "odte": 745,
-   "odteS": "中",
-   "odteRatio": 0.16,
-   "regime": "warn"
-  },
-  "SPY": {
-   "spot": 763.99,
-   "gex_b": -0.01,
-   "flip": 768,
-   "callWall": 765,
-   "putWall": 765,
-   "odte": 765,
-   "odteS": "弱",
-   "odteRatio": 0.12,
-   "regime": "neg"
-  },
-  "NVDA": {
-   "spot": 231.49,
+   "spot": 749.55,
    "gex_b": 0.01,
-   "flip": 208,
-   "callWall": 232,
-   "putWall": 230,
-   "odte": 232,
-   "odteS": "中",
-   "odteRatio": 0.26,
+   "flip": 740,
+   "callWall": 750,
+   "putWall": 725,
+   "odte": 750,
+   "odteS": "弱",
+   "odteRatio": 0.04,
    "regime": "pos"
   },
-  "TSLA": {
-   "spot": 355.6,
+  "SPY": {
+   "spot": 769.64,
    "gex_b": 0.0,
-   "flip": 350,
-   "callWall": 360,
+   "flip": 769,
+   "callWall": 770,
+   "putWall": 767,
+   "odte": 770,
+   "odteS": "弱",
+   "odteRatio": 0.06,
+   "regime": "warn"
+  },
+  "NVDA": {
+   "spot": 234.22,
+   "gex_b": 0.01,
+   "flip": 234,
+   "callWall": 235,
+   "putWall": 230,
+   "odte": 235,
+   "odteS": "弱",
+   "odteRatio": 0.07,
+   "regime": "warn"
+  },
+  "TSLA": {
+   "spot": 371.43,
+   "gex_b": 0.0,
+   "flip": 351,
+   "callWall": 370,
    "putWall": 350,
-   "odte": 360,
-   "odteS": "中",
-   "odteRatio": 0.26,
+   "odte": 370,
+   "odteS": "弱",
+   "odteRatio": 0.07,
    "regime": "pos"
   }
  }
