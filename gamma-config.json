@@ -1,50 +1,50 @@
 {
- "updated": "2026-11-05 03:11",
- "date": "2026-11-05",
+ "updated": "2026-11-06 03:12",
+ "date": "2026-11-06",
  "tickers": {
   "QQQ": {
-   "spot": 690.9,
+   "spot": 651.16,
    "gex_b": -0.01,
-   "flip": 713,
+   "flip": 693,
    "callWall": 700,
-   "putWall": 680,
-   "odte": 690,
+   "putWall": 650,
+   "odte": 650,
    "odteS": "弱",
-   "odteRatio": 0.02,
+   "odteRatio": 0.06,
    "regime": "neg"
   },
   "SPY": {
-   "spot": 766.81,
-   "gex_b": -0.0,
-   "flip": 767,
-   "callWall": 770,
-   "putWall": 750,
-   "odte": 765,
+   "spot": 733.0,
+   "gex_b": -0.02,
+   "flip": 763,
+   "callWall": 800,
+   "putWall": 740,
+   "odte": 735,
    "odteS": "弱",
-   "odteRatio": 0.03,
-   "regime": "warn"
+   "odteRatio": 0.1,
+   "regime": "neg"
   },
   "NVDA": {
-   "spot": 200.61,
+   "spot": 183.86,
    "gex_b": -0.0,
-   "flip": 202,
+   "flip": 197,
    "callWall": 200,
-   "putWall": 200,
-   "odte": 200,
+   "putWall": 190,
+   "odte": 185,
    "odteS": "弱",
-   "odteRatio": 0.0,
-   "regime": "warn"
+   "odteRatio": 0.05,
+   "regime": "neg"
   },
   "TSLA": {
-   "spot": 383.0,
-   "gex_b": 0.0,
-   "flip": 379,
+   "spot": 345.7,
+   "gex_b": -0.0,
+   "flip": 370,
    "callWall": 400,
-   "putWall": 380,
-   "odte": 400,
+   "putWall": 350,
+   "odte": 350,
    "odteS": "弱",
-   "odteRatio": 0.0,
-   "regime": "pos"
+   "odteRatio": 0.1,
+   "regime": "neg"
   }
  }
 }
