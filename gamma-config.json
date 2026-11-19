@@ -1,25 +1,25 @@
 {
- "updated": "2026-11-18 04:01",
- "date": "2026-11-18",
+ "updated": "2026-11-19 03:58",
+ "date": "2026-11-19",
  "tickers": {
   "QQQ": {
-   "spot": 665.93,
-   "gex_b": -0.01,
-   "flip": 683,
-   "callWall": 700,
+   "spot": 668.65,
+   "gex_b": -0.0,
+   "flip": 680,
+   "callWall": 680,
    "putWall": 680,
-   "odte": 660,
+   "odte": 664,
    "odteS": "弱",
-   "odteRatio": 0.03,
+   "odteRatio": 0.02,
    "regime": "neg"
   },
   "SPY": {
-   "spot": 732.44,
+   "spot": 735.61,
    "gex_b": -0.02,
-   "flip": 754,
-   "callWall": 775,
+   "flip": 750,
+   "callWall": 750,
    "putWall": 730,
-   "odte": 730,
+   "odte": 740,
    "odteS": "弱",
    "odteRatio": 0.03,
    "regime": "neg"
